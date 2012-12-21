@@ -1354,7 +1354,129 @@
       <arg name="width" type="int"/>
       <arg name="height" type="int"/>
     </request>
-
   </interface>
 
+  <interface name="wl_subcompositor" version="1">
+    <description summary="sub-surface compositing">
+      The global interface exposing sub-surface compositing capabilities.
+      A wl_surface, that has sub-surfaces associated, is called the
+      parent surface. Sub-surfaces cannot be nested.
+
+      A parent surface with its sub-surfaces forms a (compound) window.
+      For window management purposes, this set of wl_surface objects is
+      to be considered as a single window, and it should also behave as
+      such.
+
+      The aim of sub-surfaces is to offload some of the compositing work
+      within a window from clients to the compositor. A prime example is
+      a video player with decorations and video in separate wl_surface
+      objects. This should allow the compositor to pass YUV video buffer
+      processing to dedicated overlay hardware when possible.
+    </description>
+
+    <enum name="error">
+      <entry name="bad_surface" value="0"
+             summary="the to-be sub-surface is invalid"/>
+      <entry name="bad_parent" value="1"
+             summary="the given parent is a sub-surface"/>
+    </enum>
+
+    <request name="get_subsurface">
+      <description summary="give a surface the role sub-surface">
+	Create a sub-surface interface for the given surface, and
+	associate it with the given parent surface.
+
+	The sub-surface is tied to the parent surface.
+	The request wl_surface.commit on the parent surface will
+	cause the sub-surface to be committed, just as if another
+	commit was called atomically on the sub-surface after the parent.
+
+	The request wl_surface.commit on the sub-surface will
+	still function normally.
+
+	The normal rules about mapping the sub-surface apply:
+	it gets mapped when committing a non-NULL wl_buffer,
+	provided that the parent surface is mapped also.
+
+	The parent surface must not be a sub-surface itself.
+	The to-be sub-surface must not already have a role, and
+	must not already be a sub-surface or a parent.
+	Otherwise a protocol error is triggered.
+
+	TODO: define "role"
+      </description>
+
+      <arg name="id" type="new_id" interface="wl_subsurface"
+           summary="the new subsurface object id"/>
+      <arg name="surface" type="object" interface="wl_surface"
+           summary="the surface to be turned into a sub-surface"/>
+      <arg name="parent" type="object" interface="wl_surface"
+           summary="the parent surface"/>
+    </request>
+  </interface>
+
+  <interface name="wl_subsurface" version="1">
+    <description summary="sub-surface interface to a wl_surface">
+      An additional interface to a wl_surface object, which has been
+      made a sub-surface. A sub-surface has one parent surface.
+
+      If the associated wl_surface object is destroyed, the wl_subsurface
+      object is destroyed also. Note, that destroying a wl_surface object
+      takes effect immediately. If you need to synchronize the removal
+      of a sub-surface to the parent surface update, unmap the sub-surface
+      first by attaching a null wl_buffer, update parent, and then destroy
+      the sub-surface.
+
+      If the parent wl_surface object is destroyed, the associated
+      wl_surface is unmapped.
+    </description>
+
+    <enum name="error">
+      <entry name="bad_surface" value="0"
+             summary="wl_surface is not a sibling or the parent"/>
+    </enum>
+
+    <request name="set_position">
+      <description summary="reposition the sub-surface">
+	The sub-surface is moved, so that its origin (top-left corner pixel)
+	will be at the location x, y of the parent surface.
+
+	Sub-surface position is double-buffered state, and will be
+	applied on the next commit. See wl_surface.commit and
+	wl_subcompositor.get_subsurface.
+
+	The initial position is 0, 0.
+      </description>
+
+      <arg name="x" type="int" summary="coordinate in the parent surface"/>
+      <arg name="y" type="int" summary="coordinate in the parent surface"/>
+    </request>
+
+    <request name="place_above">
+      <description summary="restack the sub-surface">
+	This sub-surface is taken from the stack, and put back just
+	above the reference surface, changing the z-order of the sub-surfaces.
+	The reference surface must be one of the sibling surfaces, or the
+	parent surface. Using any other surface, including this sub-surface,
+	will cause a protocol error.
+
+	The z-order is double-buffered state, and will be applied on the
+	next commit. See wl_surface.commit and wl_subcompositor.get_subsurface.
+      </description>
+
+      <arg name="sibling" type="object" interface="wl_surface"
+           summary="the reference surface"/>
+    </request>
+
+    <request name="place_below">
+      <description summary="restack the sub-surface">
+	The sub-surface is placed just below of the reference surface.
+	See wl_subsurface.place_above.
+      </description>
+
+      <arg name="sibling" type="object" interface="wl_surface"
+           summary="the reference surface"/>
+    </request>
+
+  </interface>
 </protocol>
